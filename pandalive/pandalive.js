@@ -1,4 +1,5 @@
 (function () {
+    console.log(`version:20260430-20:56`)
     // 监听 DOM 变化，检测 #portal 弹出并查找关闭按钮
     const CLOSE_BTN_SELECTOR = 'button[type="button"]';
     const BASE_BG_STYLE_ID = 'live-inject-helper-base-bg';
