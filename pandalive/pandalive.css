@@ -1,25 +1,26 @@
+/*version :20260430-21:36 */
 :root,
 html,
 body {
-    --baseBg: transparent !important;
+  --baseBg: transparent !important;
 }
 
 #content-area {
-    background-color: transparent !important;
+  background-color: transparent !important;
 }
 
 #chat-container {
-    background-color: transparent !important;
+  background-color: transparent !important;
 }
 
 div[data-testid="play-page"] > div.items-end {
-    display: none !important;
+  display: none !important;
 }
 
-div[testid='play-player']{
-    display: none !important;
+div[data-testid="play-player"] {
+  display: none !important;
 }
 
-div.video-section {
-    display: none !important;
+div#video-section {
+  display: none !important;
 }
