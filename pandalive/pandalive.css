@@ -1,0 +1,13 @@
+:root,
+html,
+body {
+    --baseBg: transparent !important;
+}
+
+#content-area {
+    background-color: transparent !important;
+}
+
+#chat-container {
+    background-color: transparent !important;
+}

@@ -2,26 +2,6 @@
     console.log(`version:20260430-20:56`)
     // 监听 DOM 变化，检测 #portal 弹出并查找关闭按钮
     const CLOSE_BTN_SELECTOR = 'button[type="button"]';
-    const BASE_BG_STYLE_ID = 'live-inject-helper-base-bg';
-
-    function forceTransparentBaseBg() {
-        document.documentElement?.style.setProperty('--baseBg', 'transparent', 'important');
-        document.body?.style.setProperty('--baseBg', 'transparent', 'important');
-        document.getElementById('content-area')?.style.setProperty('background-color', 'transparent', 'important');
-
-        if (!document.getElementById(BASE_BG_STYLE_ID)) {
-            const styleContainer = document.head || document.body || document.documentElement;
-            if (!styleContainer) {
-                return;
-            }
-
-            const style = document.createElement('style');
-            style.id = BASE_BG_STYLE_ID;
-            style.textContent = ':root, html, body { --baseBg: transparent !important; } #content-area { background-color: transparent !important; }';
-            styleContainer.appendChild(style);
-        }
-    }
-
     function findCloseButton(portal) {
         const btn = portal.querySelector(CLOSE_BTN_SELECTOR);
         if (btn && btn.textContent.trim() === '닫기') {
@@ -76,7 +56,6 @@
     }
 
     const observer = new MutationObserver((mutations) => {
-        forceTransparentBaseBg();
         for (const mutation of mutations) {
             for (const node of mutation.addedNodes) {
                 if (node instanceof HTMLElement) {
@@ -97,7 +76,6 @@
     });
 
     function startObserver() {
-        forceTransparentBaseBg();
         observer.observe(document.body, { childList: true, subtree: true });
         fullCheck();
     }
