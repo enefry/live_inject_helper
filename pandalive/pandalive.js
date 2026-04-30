@@ -4,19 +4,22 @@
     const BASE_BG_STYLE_ID = 'live-inject-helper-base-bg';
 
     function forceTransparentBaseBg() {
-        document.documentElement.style.setProperty('--baseBg', 'transparent', 'important');
+        document.documentElement?.style.setProperty('--baseBg', 'transparent', 'important');
         document.body?.style.setProperty('--baseBg', 'transparent', 'important');
         document.getElementById('content-area')?.style.setProperty('background-color', 'transparent', 'important');
 
         if (!document.getElementById(BASE_BG_STYLE_ID)) {
+            const styleContainer = document.head || document.body || document.documentElement;
+            if (!styleContainer) {
+                return;
+            }
+
             const style = document.createElement('style');
             style.id = BASE_BG_STYLE_ID;
             style.textContent = ':root, html, body { --baseBg: transparent !important; } #content-area { background-color: transparent !important; }';
-            document.head.appendChild(style);
+            styleContainer.appendChild(style);
         }
     }
-
-    forceTransparentBaseBg();
 
     function findCloseButton(portal) {
         const btn = portal.querySelector(CLOSE_BTN_SELECTOR);
@@ -92,7 +95,16 @@
         }
     });
 
-    observer.observe(document.body, { childList: true, subtree: true });
-    fullCheck();
+    function startObserver() {
+        forceTransparentBaseBg();
+        observer.observe(document.body, { childList: true, subtree: true });
+        fullCheck();
+    }
+
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        startObserver();
+    } else {
+        document.addEventListener('DOMContentLoaded', startObserver, { once: true });
+    }
 
 })()
