@@ -11,3 +11,15 @@ body {
 #chat-container {
     background-color: transparent !important;
 }
+
+div[data-testid="play-page"] > div.items-end {
+    display: none !important;
+}
+
+div[testid='play-player']{
+    display: none !important;
+}
+
+div.video-section {
+    display: none !important;
+}

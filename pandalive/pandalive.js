@@ -1,7 +1,7 @@
 (function () {
-    console.log(`version:20260430-21:09`)
+    console.log(`version:20260430-21:21`)
     // 监听 DOM 变化，检测 #portal 弹出并查找关闭按钮
-    const CLOSE_BTN_SELECTOR = 'button[type="button"]';
+    const CLOSE_BTN_SELECTOR = 'button';
     function findCloseButton(portal) {
         const btn = portal.querySelector(CLOSE_BTN_SELECTOR);
         if (btn && btn.textContent.trim() === '닫기') {
@@ -25,23 +25,23 @@
     }
 
     function checkVideoElement(node) {
-        if (node instanceof HTMLElement) {
-            console.log(`remove check: ${node.tagName}, id=${node.id}, dataset=${JSON.stringify(node.dataset)},class=${node.className}`);
-            if (node.dataset?.testid === 'play-player' || node.id === 'video-section') {
-                removeVideoLayout(node);
-                return true;
-            }
-            const player = node.querySelector?.('[data-testid="play-player"]');
-            if (player) {
-                removeVideoLayout(player);
-                return true;
-            }
-            const videoSection = node.querySelector?.('#video-section');
-            if (videoSection) {
-                removeVideoLayout(videoSection);
-                return true;
-            }
-        }
+        // if (node instanceof HTMLElement) {
+        //     console.log(`remove check: ${node.tagName}, id=${node.id}, dataset=${JSON.stringify(node.dataset)},class=${node.className}`);
+        //     if (node.dataset?.testid === 'play-player' || node.id === 'video-section') {
+        //         removeVideoLayout(node);
+        //         return true;
+        //     }
+        //     const player = node.querySelector?.('[data-testid="play-player"]');
+        //     if (player) {
+        //         removeVideoLayout(player);
+        //         return true;
+        //     }
+        //     const videoSection = node.querySelector?.('#video-section');
+        //     if (videoSection) {
+        //         removeVideoLayout(videoSection);
+        //         return true;
+        //     }
+        // }
 
         return false;
     }
