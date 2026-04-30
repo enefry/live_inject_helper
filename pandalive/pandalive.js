@@ -1,5 +1,5 @@
 (function () {
-    console.log(`version:20260430-20:56`)
+    console.log(`version:20260430-21:09`)
     // 监听 DOM 变化，检测 #portal 弹出并查找关闭按钮
     const CLOSE_BTN_SELECTOR = 'button[type="button"]';
     function findCloseButton(portal) {
