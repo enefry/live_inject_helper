@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+REPO_ROOT=$(git -C "$SCRIPT_DIR/.." rev-parse --show-toplevel 2>/dev/null || \
+  git -C "$SCRIPT_DIR/../.." rev-parse --show-toplevel 2>/dev/null || \
+  git rev-parse --show-toplevel)
+"$REPO_ROOT/pandalive/update_sha256.sh" --source staged --stage

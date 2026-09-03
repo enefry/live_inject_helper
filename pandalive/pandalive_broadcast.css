@@ -1,0 +1,23 @@
+/*
+ * Config-page styling hooks. No existing PandaLive element is changed until
+ * the future Config flow adds one of these attributes/classes explicitly.
+ */
+:root {
+  --pandalive-config-accent: #ff5b5f;
+  --pandalive-config-focus: rgba(255, 91, 95, 0.35);
+}
+
+[data-pandalive-config-state='hidden'] {
+  display: none !important;
+}
+
+[data-pandalive-config-state='highlight'] {
+  outline: 2px solid var(--pandalive-config-accent) !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--pandalive-config-focus) !important;
+}
+
+[data-pandalive-config-state='disabled'] {
+  opacity: 0.5 !important;
+  pointer-events: none !important;
+}

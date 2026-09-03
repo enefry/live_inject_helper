@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "bridgeVersion": 1,
+  "name": "pandalive",
+  "icon": "https://raw.githubusercontent.com/enefry/live_inject_helper/refs/heads/master/pandalive/pandalive.png",
+  "main": {
+    "url": "https://www.pandalive.co.kr/play/lrsehwa",
+    "injectJS": [
+      {
+        "url": "https://raw.githubusercontent.com/enefry/live_inject_helper/refs/heads/master/pandalive/pandalive.js",
+        "injectionTime": "documentEnd",
+        "sha256": "8TbhrvwyYgRM/yiXcDPveZWU6NOa6MFK0WbQlDQQuC8="
+      }
+    ],
+    "injectCSS": [
+      {
+        "url": "https://raw.githubusercontent.com/enefry/live_inject_helper/refs/heads/master/pandalive/pandalive.css",
+        "sha256": "Dq9DlaHM/XbJSc2Jg/EyRHIbVIxpXpZ6NGmIvTB1mak="
+      }
+    ],
+    "checkJS": {
+      "url": "https://raw.githubusercontent.com/enefry/live_inject_helper/refs/heads/master/pandalive/pandalive_check.js",
+      "label": "PandaLive login check",
+      "sha256": "wNobxesnX/G2TQpV0J9V5PQjKYyjiWr3o9wy4jf2viQ="
+    }
+  },
+  "config": {
+    "url": "https://www.pandalive.co.kr/setting/broadcast",
+    "injectJS": [
+      {
+        "url": "https://raw.githubusercontent.com/enefry/live_inject_helper/refs/heads/master/pandalive/pandalive_broadcast.js",
+        "injectionTime": "documentEnd",
+        "sha256": "FpOM++77CD6RWI+hNXoIW+qPM5VLiNfgPMsN/DZxQiU="
+      }
+    ],
+    "injectCSS": [
+      {
+        "url": "https://raw.githubusercontent.com/enefry/live_inject_helper/refs/heads/master/pandalive/pandalive_broadcast.css",
+        "sha256": "JWur0LVJU9uVk1nQx097QhL8ClWnXGeKnva6VDB1x0A="
+      }
+    ]
+  }
+}
