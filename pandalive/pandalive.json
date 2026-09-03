@@ -25,7 +25,7 @@
     }
   },
   "config": {
-    "url": "https://www.pandalive.co.kr/setting/broadcast",
+    "url": "https://www.pandalive.co.kr/my/modify",
     "injectJS": [
       {
         "url": "https://raw.githubusercontent.com/enefry/live_inject_helper/refs/heads/master/pandalive/pandalive_broadcast.js",
