@@ -1,43 +1,62 @@
 {
   "schemaVersion": 1,
-  "bridgeVersion": 1,
-  "name": "pandalive",
-  "icon": "https://raw.githubusercontent.com/enefry/live_inject_helper/refs/heads/master/pandalive/pandalive.png",
+  "apiVersion": 1,
+  "id": "com.yycam.widget.pandalive",
+  "revision": "2026.09.21.1",
+  "name": "PandaLive",
+  "description": "PandaLive broadcast overlay",
+  "icon": {
+    "url": "https://raw.githubusercontent.com/enefry/live_inject_helper/refs/heads/master/pandalive/pandalive.png"
+  },
   "main": {
     "url": "https://www.pandalive.co.kr/play/lrsehwa",
-    "injectJS": [
-      {
-        "url": "https://raw.githubusercontent.com/enefry/live_inject_helper/refs/heads/master/pandalive/pandalive.js",
-        "injectionTime": "documentEnd",
-        "sha256": "8TbhrvwyYgRM/yiXcDPveZWU6NOa6MFK0WbQlDQQuC8="
-      }
-    ],
-    "injectCSS": [
-      {
-        "url": "https://raw.githubusercontent.com/enefry/live_inject_helper/refs/heads/master/pandalive/pandalive.css",
-        "sha256": "Dq9DlaHM/XbJSc2Jg/EyRHIbVIxpXpZ6NGmIvTB1mak="
-      }
-    ],
-    "checkJS": {
-      "url": "https://raw.githubusercontent.com/enefry/live_inject_helper/refs/heads/master/pandalive/pandalive_check.js",
-      "label": "PandaLive login check",
-      "sha256": "wNobxesnX/G2TQpV0J9V5PQjKYyjiWr3o9wy4jf2viQ="
+    "inject": {
+      "js": [
+        {
+          "id": "pandalive-main",
+          "url": "https://raw.githubusercontent.com/enefry/live_inject_helper/refs/heads/master/pandalive/pandalive.js",
+          "integrity": "sha256-/Umij4fLKivp8wWZD00rRASch2EnT4h6A66hbO4k7Bw=",
+          "injectionTime": "documentEnd"
+        }
+      ],
+      "css": [
+        {
+          "id": "pandalive-main-style",
+          "url": "https://raw.githubusercontent.com/enefry/live_inject_helper/refs/heads/master/pandalive/pandalive.css",
+          "integrity": "sha256-Dq9DlaHM/XbJSc2Jg/EyRHIbVIxpXpZ6NGmIvTB1mak=",
+          "injectionTime": "documentEnd"
+        }
+      ]
+    },
+    "runtime": {
+      "methods": [
+        "configuration.status"
+      ]
     }
   },
-  "config": {
-    "url": "https://www.pandalive.co.kr/my/modify",
-    "injectJS": [
-      {
-        "url": "https://raw.githubusercontent.com/enefry/live_inject_helper/refs/heads/master/pandalive/pandalive_broadcast.js",
-        "injectionTime": "documentEnd",
-        "sha256": "FpOM++77CD6RWI+hNXoIW+qPM5VLiNfgPMsN/DZxQiU="
+  "configs": {
+    "default": {
+      "title": "PandaLive account settings",
+      "description": "Sign in to PandaLive before using the overlay.",
+      "url": "https://www.pandalive.co.kr/my/modify",
+      "inject": {
+        "js": [
+          {
+            "id": "pandalive-config-default",
+            "url": "https://raw.githubusercontent.com/enefry/live_inject_helper/refs/heads/master/pandalive/pandalive_broadcast.js",
+            "integrity": "sha256-5IqZ0xenqIKyeGMlZWzhf30FjZkLbsolHYBKknRGpLE=",
+            "injectionTime": "documentEnd"
+          }
+        ],
+        "css": [
+          {
+            "id": "pandalive-config-default-style",
+            "url": "https://raw.githubusercontent.com/enefry/live_inject_helper/refs/heads/master/pandalive/pandalive_broadcast.css",
+            "integrity": "sha256-JWur0LVJU9uVk1nQx097QhL8ClWnXGeKnva6VDB1x0A=",
+            "injectionTime": "documentEnd"
+          }
+        ]
       }
-    ],
-    "injectCSS": [
-      {
-        "url": "https://raw.githubusercontent.com/enefry/live_inject_helper/refs/heads/master/pandalive/pandalive_broadcast.css",
-        "sha256": "JWur0LVJU9uVk1nQx097QhL8ClWnXGeKnva6VDB1x0A="
-      }
-    ]
+    }
   }
 }

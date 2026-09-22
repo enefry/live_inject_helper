@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yy.com/schemas/yycam-web-widget-manifest-v1.schema.json",
+  "title": "YYCam Web Widget Manifest v1",
+  "description": "Manifest consumed by the YYCam external Web Widget subscription flow.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "apiVersion",
+    "id",
+    "revision",
+    "name",
+    "main"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "apiVersion": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]{1,128}$"
+    },
+    "revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "icon": {
+      "$ref": "#/$defs/icon"
+    },
+    "main": {
+      "$ref": "#/$defs/main"
+    },
+    "configs": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 16,
+      "required": ["default"],
+      "propertyNames": {
+        "pattern": "^(?:default|[a-z][a-z0-9._-]{0,63})$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/config"
+      }
+    }
+  },
+  "$defs": {
+    "url": {
+      "$comment": "Production URLs are HTTPS. Debug HTTP is limited to localhost, 127.0.0.1, and [::1] by Native policy.",
+      "type": "string",
+      "format": "uri",
+      "pattern": "^(?:https://[^\\s]+|http://(?:localhost|127\\.0\\.0\\.1|\\[::1\\])(?::[0-9]{1,5})?(?:/|$))$",
+      "maxLength": 4096
+    },
+    "originURL": {
+      "$comment": "Production URLs are HTTPS. Debug HTTP is limited to localhost, 127.0.0.1, and [::1] by Native policy.",
+      "type": "string",
+      "format": "uri",
+      "pattern": "^(?:https://[^\\s]+|http://(?:localhost|127\\.0\\.0\\.1|\\[::1\\])(?::[0-9]{1,5})?(?:/|$))$",
+      "maxLength": 4096
+    },
+    "integrity": {
+      "type": "string",
+      "pattern": "^sha256-[A-Za-z0-9+/]{43}=$"
+    },
+    "resource": {
+      "type": "object",
+      "required": ["id", "url", "integrity"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]{1,128}$"
+        },
+        "url": {
+          "$ref": "#/$defs/url"
+        },
+        "integrity": {
+          "$ref": "#/$defs/integrity"
+        },
+        "injectionTime": {
+          "enum": ["documentStart", "documentEnd"]
+        }
+      }
+    },
+    "inject": {
+      "type": "object",
+      "properties": {
+        "js": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/resource"
+          }
+        },
+        "css": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/resource"
+          }
+        }
+      }
+    },
+    "basePage": {
+      "type": "object",
+      "required": ["url"],
+      "properties": {
+        "url": {
+          "$ref": "#/$defs/originURL"
+        },
+        "userAgent": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "inject": {
+          "$ref": "#/$defs/inject"
+        }
+      }
+    },
+    "main": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/basePage"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "runtime": {
+              "type": "object",
+              "properties": {
+                "methods": {
+                  "type": "array",
+                  "maxItems": 32,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "uniqueItems": true
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "config": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/basePage"
+        },
+        {
+          "type": "object",
+          "required": ["title"],
+          "properties": {
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "runtime": {}
+          }
+        }
+      ]
+    },
+    "icon": {
+      "type": "object",
+      "required": ["url"],
+      "properties": {
+        "url": {
+          "$ref": "#/$defs/url"
+        },
+        "integrity": {
+          "$ref": "#/$defs/integrity"
+        }
+      }
+    }
+  }
+}

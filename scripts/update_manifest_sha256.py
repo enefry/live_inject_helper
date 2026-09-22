@@ -21,17 +21,6 @@ from typing import Any, Iterable
 from urllib.parse import unquote, urlparse
 
 
-RESOURCE_LIST_KEYS = (
-    "injectJS",
-    "injectCSS",
-    "mainInjectJS",
-    "mainInjectCSS",
-    "configInjectJS",
-    "configInjectCSS",
-)
-CHECK_KEYS = ("checkJS", "checkJSResource")
-
-
 def git(repo_root: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[bytes]:
     return subprocess.run(
         ["git", "-C", str(repo_root), *args],
@@ -152,25 +141,34 @@ def update_index_file(repo_root: Path, rel_path: str, content: str) -> None:
 
 
 def resource_nodes(manifest: dict[str, Any]) -> Iterable[tuple[Any, Any, str]]:
-    """Yield (parent, key/index, description) for resource values in the manifest."""
+    """Yield JS/CSS resource nodes from main and every named Config.
 
-    pages: list[dict[str, Any]] = []
-    for key in ("main", "config"):
-        page = manifest.get(key)
-        if isinstance(page, dict):
-            pages.append(page)
+    The v1 Manifest deliberately has no checkJS node. Keeping traversal
+    limited to ``page.inject.js`` and ``page.inject.css`` also prevents a
+    deprecated field from accidentally becoming executable again.
+    """
 
-    containers = pages + [manifest]
-    for container in containers:
-        for key in RESOURCE_LIST_KEYS:
-            resources = container.get(key)
+    pages: list[tuple[str, dict[str, Any]]] = []
+    main = manifest.get("main")
+    if isinstance(main, dict):
+        pages.append(("main", main))
+
+    configs = manifest.get("configs")
+    if isinstance(configs, dict):
+        for config_key, config in configs.items():
+            if isinstance(config, dict):
+                pages.append((f"configs.{config_key}", config))
+
+    for page_name, page in pages:
+        inject = page.get("inject")
+        if not isinstance(inject, dict):
+            continue
+        for resource_type in ("js", "css"):
+            resources = inject.get(resource_type)
             if not isinstance(resources, list):
                 continue
             for index in range(len(resources)):
-                yield resources, index, key
-        for key in CHECK_KEYS:
-            if key in container:
-                yield container, key, key
+                yield resources, index, f"{page_name}.inject.{resource_type}[{index}]"
 
 
 def get_node(parent: Any, key: Any) -> Any:
@@ -226,8 +224,13 @@ def update_manifest(manifest: dict[str, Any], repo_root: Path, mode: str) -> tup
             continue
 
         digest = sha256_base64(data)
-        if resource_object.get("sha256") != digest:
-            resource_object["sha256"] = digest
+        if resource_object.get("integrity") != f"sha256-{digest}":
+            resource_object["integrity"] = f"sha256-{digest}"
+            changed += 1
+        # Make migration from the pre-v1 field explicit if an old resource is
+        # still present in a developer's local Manifest.
+        if "sha256" in resource_object:
+            del resource_object["sha256"]
             changed += 1
         if replace_string:
             set_node(parent, key, resource_object)

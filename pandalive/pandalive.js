@@ -1,5 +1,37 @@
 (function () {
     console.log(`version:20260430-21:59`)
+
+    // Main Runtime replacement for the old checkJS resource. Native invokes
+    // this handler after Main navigation and uses the returned state to
+    // decide whether configs.default should be presented.
+    function configurationStatus() {
+        let deviceInfo = null;
+        try {
+            const raw = window.localStorage.getItem('xDeviceInfo');
+            deviceInfo = raw ? JSON.parse(raw) : null;
+        } catch (error) {
+            deviceInfo = null;
+        }
+
+        if (deviceInfo && String(deviceInfo.ui) !== '0') {
+            return {
+                state: 'ready',
+                reason: 'authenticated'
+            };
+        }
+
+        return {
+            state: 'needsConfiguration',
+            configKey: 'default',
+            reason: 'loginRequired',
+            message: 'PandaLive login is required'
+        };
+    }
+
+    if (window.YYCamWidget && window.YYCamWidget.runtime) {
+        window.YYCamWidget.runtime.register('configuration.status', configurationStatus);
+    }
+
     // 监听 DOM 变化，检测 #portal 弹出并查找关闭按钮
     const CLOSE_BTN_SELECTOR = 'button';
     function findCloseButton(portal) {

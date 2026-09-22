@@ -3,7 +3,7 @@
  *
  * The manifest injects this file into the Config WebView at documentEnd. It
  * deliberately registers functions only; it does not navigate, fill fields,
- * click buttons, or call complete() automatically. The product flow can add
+ * click buttons, or call completeConfig() automatically. The product flow can add
  * the timing and page-specific selectors later without changing the bridge
  * contract.
  */
@@ -11,10 +11,10 @@
   const api = window.PandaLiveConfig = window.PandaLiveConfig || {};
 
   function widget() {
-    if (!window.YCPWidget) {
-      throw new Error('YCPWidget is unavailable on this page');
+    if (!window.YYCamWidget) {
+      throw new Error('YYCamWidget is unavailable on this page');
     }
-    return window.YCPWidget;
+    return window.YYCamWidget;
   }
 
   function resolveElement(target, root) {
@@ -32,16 +32,16 @@
   // Native bridge wrappers. These are explicit calls so the caller controls
   // when the Config page is considered complete or should be dismissed.
   api.getContext = function () {
-    return widget().getContext();
+    return widget().host.getContext();
   };
-  api.complete = function (options) {
-    return widget().complete(options || {});
+  api.completeConfig = function (options) {
+    return widget().host.completeConfig(options || {});
   };
-  api.close = function () {
-    return widget().close();
+  api.closeConfig = function (options) {
+    return widget().host.closeConfig(options || {});
   };
   api.on = function (name, handler) {
-    return widget().on(name, handler);
+    return widget().events.on(name, handler);
   };
 
   // DOM helpers keep page-specific selectors outside the native app. They do
