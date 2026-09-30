@@ -9,7 +9,7 @@
     "url": "https://raw.githubusercontent.com/enefry/live_inject_helper/refs/heads/master/pandalive/pandalive.png"
   },
   "main": {
-    "url": "https://www.pandalive.co.kr/play/lrsehwa",
+    "url": "https://www.pandalive.co.kr/",
     "inject": {
       "js": [
         {
