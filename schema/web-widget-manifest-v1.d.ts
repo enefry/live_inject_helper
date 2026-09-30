@@ -27,6 +27,7 @@ export interface WidgetIconResource {
 export interface WidgetBasePageDefinition {
   url: string;
   userAgent?: string;
+  allowedOrigins?: string[];
   inject?: WidgetInjectionDefinition;
 }
 

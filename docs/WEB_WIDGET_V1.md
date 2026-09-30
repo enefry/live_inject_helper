@@ -308,8 +308,9 @@ Context 不包含 Cookie、token、密码、RTMP 密钥或完整用户资料。C
 
 ## 6. 安全边界
 
-- 注入和 Bridge 只对 Manifest 页面 URL 的精确 Origin 生效；iframe 和跨 Origin
-  页面没有 SDK 注入或 Host 权限。
+- 默认只授权 Manifest 页面 URL 的精确 Origin。Main 和每个 Config 可独立声明
+  `allowedOrigins`，Native 验证后才允许对应页面注入 JS/CSS、安装 SDK、调用 Bridge
+  或接收 Native 回调。iframe 和未授权 Origin 没有这些权限。
 - Manifest 的 integrity 只证明资源匹配当前 Manifest，不能防止 Manifest 源站本身
   被攻破。v1 信任根是用户确认的 HTTPS Manifest URL。
 - Main 和 Config 共享持久化站点数据以复用登录 Cookie，但每个页面使用独立的
@@ -317,6 +318,39 @@ Context 不包含 Cookie、token、密码、RTMP 密钥或完整用户资料。C
 - `YYCamWidget.__native`、`__YYCamWidgetBootstrap`、
   `__YYCamWidgetReceiveResponse` 等是 Native/SDK 私有实现，Web 业务代码不得依赖。
 - 资源、日志和 Context 中不得携带密码、Cookie、token 或完整用户隐私。
+
+### 显式来源白名单
+
+```json
+{
+  "url": "https://www.pandalive.co.kr/",
+  "allowedOrigins": ["https://pandalive.co.kr", "https://*.pandalive.co.kr"]
+}
+```
+
+`allowedOrigins` 是页面级可选字段，最多 16 项；省略时保留精确匹配。
+页面自身 Origin 始终授权，附加条目只能是同一可注册域名、同协议和端口的
+HTTPS Origin，不能包含路径、查询、fragment、账号密码或任意位置通配。
+`https://*.pandalive.co.kr` 允许所有层级的子域，但不包括根域；需要根域时单独声明。
+此授权意味着所有被匹配的子域都可以调用当前页面角色的 Native Bridge，发布者必须
+保证它们可控；只需要一个登录子域时，优先声明精确 Origin。
+
+Native 使用随代码固定的 Public Suffix List（包含 PRIVATE 部分）校验可注册域名，
+拒绝 `*.co.kr`、`*.github.io` 和不同租户/站点之间的授权；不运行时下载 PSL。
+规则格式错误、null、空列表、重复规则（大小写与默认端口归一化后）都会拒绝整个
+Manifest，刷新失败沿用最近有效 Snapshot，不能忽略非法字段后扩大权限。
+
+Native 来源授权、SDK 安装、Manifest JS/CSS 注入和 JS 内部检查共享 Native 编译后的
+规则。每次导航依然推进 generation，Main/Config 权限互不继承；Bridge 还校验
+调用 frame 的实际 securityOrigin 与当前主页面一致。`context.page.origin` 表示当前
+页面实际 Origin。白名单不会改变 WebKit 的 Cookie/localStorage 隔离规则，也不复制登录数据。
+第三方 OAuth/SSO 页面可继续导航，但在白名单之外时不开放 Widget 能力。
+
+维护数据位于 `security/public-suffix-rules.json`，来源为官方 PSL，版本与原始数据
+SHA-256 记录在文件中；域名规则数据依照 MPL-2.0 使用。更新时保留 ICANN、PRIVATE、
+wildcard 和 exception 规则，并用 IDNA ASCII 域名生成数据，不能只截取域名最后两段。
+修改 SDK 或 PSL 数据后运行 `python3 scripts/sync_native_security.py --native-root <iOS仓库>`，
+再执行 `sh tests/run_native_origin_policy_test.sh <iOS仓库>` 校验 Native 与 JS 一致性。
 
 ### Native-only transport contract
 

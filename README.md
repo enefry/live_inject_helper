@@ -53,4 +53,10 @@ Hook 以暂存区版本计算资源摘要，并自动把更新后的 Manifest �
 ```sh
 node tests/web_widget_test.js
 python3 tests/manifest_test.py
+sh tests/run_native_origin_policy_test.sh /path/to/YYCamTool-ios
 ```
+
+PandaLive 的 Main 和 Config 已分别声明 `allowedOrigins`。默认仍是精确同源授权，
+规则、公共后缀限制和安全边界见 `docs/WEB_WIDGET_V1.md` 的“显式来源白名单”。
+Native 检查在 macOS 上使用真实 Swift 模型与 SDK wrapper 编译，并让 Node 验证
+同一组来源的 JS/CSS guard、Main/Config SDK 和导航离开白名单后的拒绝行为。

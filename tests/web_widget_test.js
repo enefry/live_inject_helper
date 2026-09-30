@@ -41,7 +41,7 @@ function createContextPayload(role) {
   };
 }
 
-function loadSDK(role, transport, webkit) {
+function loadSDK(role, transport, webkit, overrides = {}) {
   const sandbox = {
     console,
     Promise,
@@ -59,6 +59,7 @@ function loadSDK(role, transport, webkit) {
     unescape,
     encodeURIComponent,
     TextEncoder,
+    URL,
     setTimeout,
     clearTimeout,
     location: { origin: "https://widget.example" },
@@ -71,6 +72,7 @@ function loadSDK(role, transport, webkit) {
   if (webkit) {
     sandbox.webkit = webkit;
   }
+  Object.assign(sandbox, overrides);
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   vm.runInNewContext(sdkSource, sandbox, { filename: "yycamwidget.js" });
@@ -401,6 +403,10 @@ function testPandaLiveMainRuntime() {
   await testConfigSDK();
   testPandaLiveConfigHelper();
   testPandaLiveMainRuntime();
+  const missingOrigin = loadSDK("main", createTransport("main"), null, {__YYCamWidgetBootstrap: {role: "main"}});
+  await assert.rejects(missingOrigin.YYCamWidget.ready, error => error.code === "ORIGIN_NOT_ALLOWED");
+  const invalidRules = loadSDK("main", createTransport("main"), null, {__YYCamWidgetBootstrap: {role: "main", origin: "https://widget.example", originRules: []}});
+  await assert.rejects(invalidRules.YYCamWidget.ready, error => error.code === "ORIGIN_NOT_ALLOWED");
   console.log("web_widget_test: ok");
 })().catch((error) => {
   console.error(error.stack || error);

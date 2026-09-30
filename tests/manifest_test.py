@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 import re
 import sys
+from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,6 +21,64 @@ CONFIG_KEY_RE = re.compile(r"^(?:default|[a-z][a-z0-9._-]{0,63})$")
 DEBUG_HTTP_URL_RE = re.compile(
     r"^http://(?:localhost|127\.0\.0\.1|\[::1\])(?::[0-9]{1,5})?(?:/|$)"
 )
+SUFFIX_RULES = json.loads((ROOT / "security" / "public-suffix-rules.json").read_text(encoding="utf-8"))
+EXACT_SUFFIXES = set(SUFFIX_RULES["exact"])
+WILDCARD_SUFFIXES = set(SUFFIX_RULES["wildcard"])
+SUFFIX_EXCEPTIONS = set(SUFFIX_RULES["exception"])
+DNS_HOST_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$")
+
+
+def registrable_domain(host: str) -> str | None:
+    labels = host.lower().split(".")
+    suffix_count = 1
+    for index in range(len(labels)):
+        suffix = ".".join(labels[index:])
+        if suffix in SUFFIX_EXCEPTIONS:
+            suffix_count = len(labels) - index - 1
+            break
+        if suffix in EXACT_SUFFIXES or ".".join(labels[index + 1:]) in WILDCARD_SUFFIXES:
+            suffix_count = max(suffix_count, len(labels) - index)
+    return ".".join(labels[-suffix_count - 1:]) if len(labels) > suffix_count else None
+
+
+def validate_origins(page: dict) -> None:
+    if "allowedOrigins" not in page:
+        return
+    origins = page["allowedOrigins"]
+    if not isinstance(origins, list) or not 1 <= len(origins) <= 16:
+        fail("allowedOrigins must contain 1...16 entries")
+    base = urlsplit(page["url"])
+    if (not DNS_HOST_RE.fullmatch(base.hostname or "") or len(base.hostname or "") > 253 or
+            not re.search(r"[a-z]", (base.hostname or "").split(".")[-1])):
+        fail("allowedOrigins requires a DNS page host")
+    seen = set()
+    for origin in origins:
+        if not isinstance(origin, str) or len(origin) > 512 or not origin.startswith("https://"):
+            fail("invalid allowedOrigins entry")
+        wildcard = origin.startswith("https://*.")
+        candidate = "https://" + origin[len("https://*."):] if wildcard else origin
+        if not re.fullmatch(r"https://[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+(?::[0-9]{1,5})?", candidate):
+            fail("invalid allowedOrigins syntax")
+        if any(character in candidate for character in ("*", "%", "\\", " ", "\n", "\t", "?", "#")):
+            fail("invalid allowedOrigins entry")
+        parsed = urlsplit(candidate)
+        try:
+            port = parsed.port or 443
+        except ValueError:
+            fail("invalid allowedOrigins port")
+        host = parsed.hostname or ""
+        if (parsed.username is not None or parsed.password is not None or parsed.path or
+                not DNS_HOST_RE.fullmatch(host) or len(host) > 253 or
+                not re.search(r"[a-z]", host.split(".")[-1]) or parsed.port == 0 or
+                parsed.scheme != base.scheme or port != (base.port or 443)):
+            fail("invalid allowedOrigins entry")
+        site = registrable_domain(host)
+        if site is None or site != registrable_domain(base.hostname or ""):
+            fail("public suffix or unrelated site in allowedOrigins")
+        normalized = (host, port, wildcard)
+        if normalized in seen:
+            fail("normalized duplicate in allowedOrigins")
+        seen.add(normalized)
 
 
 def fail(message: str) -> None:
@@ -40,6 +99,7 @@ def validate_page(name: str, page: dict, is_config: bool = False) -> None:
         fail(f"{name}.url must be an absolute HTTP(S) URL")
     if is_config and not isinstance(page.get("title"), str):
         fail(f"{name}.title is required")
+    validate_origins(page)
     injection = page.get("inject", {})
     if not isinstance(injection, dict):
         fail(f"{name}.inject must be an object")
@@ -155,6 +215,26 @@ def main() -> int:
     validate_manifest(manifest)
     assert_fixture_integrity(manifest)
     test_rejections_and_ignored_extensions(manifest)
+    cases = json.loads((ROOT / "tests" / "origin_policy_cases.json").read_text(encoding="utf-8"))
+    for case in cases["policies"]:
+        page = {"url": case["pageURL"]}
+        if "allowedOrigins" in case:
+            page["allowedOrigins"] = case["allowedOrigins"]
+        validate_origins(page)
+    for entries in cases["invalidDeclarations"] + [None, "https://pandalive.co.kr"]:
+        try:
+            validate_origins({"url": manifest["main"]["url"], "allowedOrigins": entries})
+        except AssertionError:
+            pass
+        else:
+            fail(f"invalid origin declaration accepted: {entries}")
+    for case in cases["invalidPublicSuffixes"]:
+        try:
+            validate_origins({"url": case["pageURL"], "allowedOrigins": case["allowedOrigins"]})
+        except AssertionError:
+            pass
+        else:
+            fail("public suffix declaration accepted")
     if any(token in manifest_text for token in ("checkJS", "injectJS", "injectCSS", "sha256\"", "bridgeVersion")):
         fail("legacy Manifest fields must not be present")
     print("manifest_test: ok")

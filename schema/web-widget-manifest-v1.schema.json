@@ -125,6 +125,18 @@
           "minLength": 1,
           "maxLength": 2048
         },
+        "allowedOrigins": {
+          "$comment": "Additional HTTPS origins in the page's registrable domain, including PRIVATE PSL rules. Native validates DNS, public suffixes, normalized duplicates and same scheme/port. Wildcards match subdomains only; the page's own origin remains authorized.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "maxLength": 512,
+            "pattern": "^https://(?:\\*\\.)?[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)+(?::[0-9]{1,5})?$"
+          }
+        },
         "inject": {
           "$ref": "#/$defs/inject"
         }

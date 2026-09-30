@@ -1,0 +1,74 @@
+{
+  "policies": [
+    {
+      "name": "legacy exact origin",
+      "pageURL": "https://www.pandalive.co.kr/",
+      "allowed": ["https://www.pandalive.co.kr/login", "https://www.pandalive.co.kr:443/login"],
+      "denied": ["https://pandalive.co.kr/", "https://login.pandalive.co.kr/", "http://www.pandalive.co.kr/", "https://www.pandalive.co.kr:8443/", "https://attacker@www.pandalive.co.kr/", "about:blank"]
+    },
+    {
+      "name": "explicit root and subdomains",
+      "pageURL": "https://www.pandalive.co.kr/",
+      "allowedOrigins": ["https://pandalive.co.kr", "https://*.pandalive.co.kr"],
+      "allowed": ["https://pandalive.co.kr/", "https://www.pandalive.co.kr/", "https://login.pandalive.co.kr/", "https://nested.login.pandalive.co.kr/", "https://LOGIN.PANDALIVE.CO.KR:443/login"],
+      "denied": ["https://evilpandalive.co.kr/", "https://pandalive.co.kr.evil.com/", "https://pandalive.co.kr./", "https://pandalive.co.kr:8443/", "http://login.pandalive.co.kr/", "https://pandalive.co.kr@evil.com/", "https://evil.com@pandalive.co.kr/", "https://example.com/"]
+    },
+    {
+      "name": "wildcard excludes root",
+      "pageURL": "https://www.pandalive.co.kr/",
+      "allowedOrigins": ["https://*.pandalive.co.kr"],
+      "allowed": ["https://login.pandalive.co.kr/"],
+      "denied": ["https://pandalive.co.kr/"]
+    },
+    {
+      "name": "explicit sibling only",
+      "pageURL": "https://www.pandalive.co.kr/",
+      "allowedOrigins": ["https://login.pandalive.co.kr"],
+      "allowed": ["https://www.pandalive.co.kr/", "https://login.pandalive.co.kr/"],
+      "denied": ["https://other.pandalive.co.kr/", "https://nested.login.pandalive.co.kr/"]
+    },
+    {
+      "name": "non-default port",
+      "pageURL": "https://www.pandalive.co.kr:8443/",
+      "allowedOrigins": ["https://*.pandalive.co.kr:8443"],
+      "allowed": ["https://login.pandalive.co.kr:8443/"],
+      "denied": ["https://login.pandalive.co.kr/", "https://login.pandalive.co.kr:443/"]
+    },
+    {
+      "name": "PSL exception",
+      "pageURL": "https://www.city.kawasaki.jp/",
+      "allowedOrigins": ["https://*.city.kawasaki.jp"],
+      "allowed": ["https://login.city.kawasaki.jp/"],
+      "denied": ["https://login.other.kawasaki.jp/"]
+    },
+    {
+      "name": "private PSL tenant",
+      "pageURL": "https://tenant.github.io/",
+      "allowedOrigins": ["https://*.tenant.github.io"],
+      "allowed": ["https://login.tenant.github.io/"],
+      "denied": ["https://other.github.io/"]
+    }
+  ],
+  "invalidDeclarations": [
+    [], ["*"], ["https://*"], ["https://*.co.kr"], ["https://*.com"],
+    ["http://*.pandalive.co.kr"], ["https://*.pandalive.co.kr:8443"],
+    ["https://example.com"], ["https://*.pandalive.co.kr/"], ["https://*.pandalive.co.kr?x=1"],
+    ["https://*.pandalive.co.kr#x"], ["https://user@pandalive.co.kr"],
+    ["https://pandalive.co.kr:65536"], ["https://pandalive.co.kr:0"],
+    ["https://127.0.0.1"], ["https://*.localhost"], ["https://*.pandalive..co.kr"],
+    ["https://*pandalive.co.kr"], ["https://login.*.pandalive.co.kr"],
+    ["https://pandalive.co.kr", "https://PANDALIVE.CO.KR:443"],
+    ["https://pandalive.co.kr."], ["https://-login.pandalive.co.kr"], ["https://pandalive.co.kr:abc"],
+    ["https://%70andalive.co.kr"], ["https://판다.pandalive.co.kr"], [" https://pandalive.co.kr"],
+    ["https://pandalive.co.kr:"], ["https://pandalive.co.kr:000443"]
+  ],
+  "invalidPublicSuffixes": [
+    {"pageURL": "https://tenant.github.io/", "allowedOrigins": ["https://*.github.io"]},
+    {"pageURL": "https://www.a.ck/", "allowedOrigins": ["https://*.a.ck"]},
+    {"pageURL": "https://www.foo.kawasaki.jp/", "allowedOrigins": ["https://*.foo.kawasaki.jp"]},
+    {"pageURL": "https://tenant.blogspot.com/", "allowedOrigins": ["https://*.blogspot.com"]},
+    {"pageURL": "https://tenant.github.io/", "allowedOrigins": ["https://other.github.io"]},
+    {"pageURL": "https://127.0.0.1/", "allowedOrigins": ["https://login.0.0.1"]},
+    {"pageURL": "https://0x7f.0.0.1/", "allowedOrigins": ["https://login.0.0.1"]}
+  ]
+}

@@ -46,7 +46,8 @@
     ? bootstrap.origin
     : (typeof root.__YYCamWidgetTargetOrigin === "string"
       ? root.__YYCamWidgetTargetOrigin
-      : currentOrigin());
+      : "");
+  var originRules = bootstrap.originRules;
   var contextValue;
   var readySettled = false;
   var readyResolve;
@@ -70,8 +71,33 @@
   }
 
   function isOriginAllowed() {
+    if (originRules !== undefined) {
+      if (!Array.isArray(originRules) || !originRules.length) {
+        return false;
+      }
+      try {
+        var actual = new URL(root.location.href || currentOrigin());
+        if (actual.username || actual.password) {
+          return false;
+        }
+        return originRules.some(function (rule) {
+          if (!rule || typeof rule.host !== "string" || !rule.host ||
+              typeof rule.includesSubdomains !== "boolean" ||
+              (rule.scheme !== "https" && rule.scheme !== "http") ||
+              (rule.port != null && (!Number.isInteger(rule.port) || rule.port < 1 || rule.port > 65535))) {
+            return false;
+          }
+          return actual.protocol === rule.scheme + ":" && actual.port === String(rule.port || "") &&
+            (rule.includesSubdomains
+              ? actual.hostname !== rule.host && actual.hostname.endsWith("." + rule.host)
+              : actual.hostname === rule.host);
+        });
+      } catch (error) {
+        return false;
+      }
+    }
     if (!expectedOrigin) {
-      return true;
+      return false;
     }
     return currentOrigin() === expectedOrigin;
   }
