@@ -307,44 +307,70 @@ async function testConfigSDK() {
   assert.strictEqual(runtimeResult.error.code, "METHOD_NOT_ALLOWED");
 }
 
-function testPandaLiveConfigHelper() {
-  const calls = [];
-  const sandbox = {
-    console,
-    Promise,
-    window: {
-      YYCamWidget: {
-        host: {
-          getContext: () => (calls.push("getContext"), "context"),
-          completeConfig: (options) => (calls.push(["completeConfig", options]), "complete"),
-          closeConfig: (options) => (calls.push(["closeConfig", options]), "close")
-        },
-        events: {
-          on: (name) => (calls.push(["on", name]), "off")
+async function testPandaLiveConfigHelper() {
+  const source = fs.readFileSync(path.join(rootDir, "pandalive/pandalive_broadcast.js"), "utf8");
+  function createPage(storageValue, completionError) {
+    const calls = [];
+    const errors = [];
+    const intervals = new Map();
+    let disconnected = false;
+    const sandbox = {
+      console: { log() {}, error: (...args) => errors.push(args) },
+      localStorage: { value: storageValue, getItem() { return this.value; } },
+      window: {
+        YYCamWidget: {
+          host: {
+            completeConfig(options) {
+              calls.push(plain(options));
+              return completionError ? Promise.reject(completionError) : Promise.resolve({ state: "ready" });
+            }
+          }
         }
-      }
-    },
-    document: {
-      querySelector: () => null
-    }
-  };
-  sandbox.globalThis = sandbox;
-  vm.runInNewContext(
-    fs.readFileSync(path.join(rootDir, "pandalive/pandalive_broadcast.js"), "utf8"),
-    sandbox,
-    { filename: "pandalive_broadcast.js" }
-  );
-  const helper = sandbox.window.PandaLiveConfig;
-  assert.strictEqual(helper.getContext(), "context");
-  assert.strictEqual(helper.completeConfig({ reason: "saved" }), "complete");
-  assert.strictEqual(helper.closeConfig({ reason: "cancelled" }), "close");
-  assert.strictEqual(helper.on("nativeReady", () => {}), "off");
-  assert.deepStrictEqual(calls, [
-    "getContext",
-    ["completeConfig", { reason: "saved" }],
-    ["closeConfig", { reason: "cancelled" }],
-    ["on", "nativeReady"]
-  ]);
+      },
+      document: { documentElement: {}, querySelector: () => null },
+      MutationObserver: function () {
+        this.observe = () => {};
+        this.disconnect = () => { disconnected = true; };
+      },
+      setInterval(callback) { intervals.set(1, callback); return 1; },
+      clearInterval(timer) { intervals.delete(timer); },
+      setTimeout
+    };
+    const run = () => vm.runInNewContext(source, sandbox, { filename: "pandalive_broadcast.js" });
+    run();
+    return { calls, errors, intervals, sandbox, run, isDisconnected: () => disconnected };
+  }
+
+  const loggedIn = createPage(JSON.stringify({ ui: "123" }));
+  loggedIn.run();
+  await Promise.resolve();
+  assert.deepStrictEqual(loggedIn.calls, [{ reason: "authenticated" }]);
+  assert.strictEqual(loggedIn.intervals.size, 0);
+  assert.deepStrictEqual(loggedIn.errors, []);
+
+  for (const storageValue of [null, "invalid-json", "{}", '{"ui":null}', '{"ui":""}', '{"ui":0}', '{"ui":"0"}']) {
+    const page = createPage(storageValue);
+    page.run();
+    assert.strictEqual(page.calls.length, 0);
+    assert.strictEqual(page.intervals.size, 1);
+    const poll = page.intervals.get(1);
+    poll();
+    assert.strictEqual(page.calls.length, 0);
+    page.sandbox.localStorage.value = JSON.stringify({ ui: 123 });
+    poll();
+    poll();
+    await Promise.resolve();
+    assert.deepStrictEqual(page.calls, [{ reason: "authenticated" }]);
+    assert.strictEqual(page.intervals.size, 0);
+    assert.strictEqual(page.isDisconnected(), true);
+  }
+
+  const completionError = new Error("Native completion failed");
+  const failed = createPage(JSON.stringify({ ui: "123" }), completionError);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.strictEqual(failed.errors.length, 1);
+  assert.strictEqual(failed.errors[0][1], completionError);
+  assert.strictEqual(failed.sandbox.window.__loginCompletionRequested, false);
 }
 
 function testPandaLiveMainRuntime() {
@@ -401,7 +427,7 @@ function testPandaLiveMainRuntime() {
   await testMainSDK();
   await testNativeHandlerContract();
   await testConfigSDK();
-  testPandaLiveConfigHelper();
+  await testPandaLiveConfigHelper();
   testPandaLiveMainRuntime();
   const missingOrigin = loadSDK("main", createTransport("main"), null, {__YYCamWidgetBootstrap: {role: "main"}});
   await assert.rejects(missingOrigin.YYCamWidget.ready, error => error.code === "ORIGIN_NOT_ALLOWED");

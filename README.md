@@ -20,9 +20,9 @@
   `configs.default` Config 页面。
 - `pandalive.js` 注册 `configuration.status` Runtime；Manifest 不再引用
   `checkJS`。
-- Config helper 只注册显式调用的接口，不会自动操作页面。业务流程可以在
-  确定登录完成时调用 `PandaLiveConfig.completeConfig()`，用户取消时调用
-  `PandaLiveConfig.closeConfig()`。
+- Config 页面自动切换到登录 tab，并轮询 `localStorage.xDeviceInfo.ui`。
+  检测到有效用户 ID 后停止监听，通过 `YYCamWidget.host.completeConfig()`
+  通知 Native 设置完成；同一页面不会重复通知，调用失败时输出错误日志。
 
 `pandalive_check.js` 已不属于 v1 运行路径；保留它仅用于迁移时对照，Native
 不得下载、执行或从 Manifest 引用该文件。

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "apiVersion": 1,
   "id": "com.yycam.widget.pandalive",
-  "revision": "2026.09.30.1",
+  "revision": "2026.09.30.2",
   "name": "PandaLive",
   "description": "PandaLive broadcast overlay",
   "icon": {
@@ -10,7 +10,10 @@
   },
   "main": {
     "url": "https://www.pandalive.co.kr/",
-    "allowedOrigins": ["https://pandalive.co.kr", "https://*.pandalive.co.kr"],
+    "allowedOrigins": [
+      "https://pandalive.co.kr",
+      "https://*.pandalive.co.kr"
+    ],
     "inject": {
       "js": [
         {
@@ -40,13 +43,16 @@
       "title": "PandaLive account settings",
       "description": "Sign in to PandaLive before using the overlay.",
       "url": "https://www.pandalive.co.kr/my/modify",
-      "allowedOrigins": ["https://pandalive.co.kr", "https://*.pandalive.co.kr"],
+      "allowedOrigins": [
+        "https://pandalive.co.kr",
+        "https://*.pandalive.co.kr"
+      ],
       "inject": {
         "js": [
           {
             "id": "pandalive-config-default",
             "url": "https://raw.githubusercontent.com/enefry/live_inject_helper/refs/heads/master/pandalive/pandalive_broadcast.js",
-            "integrity": "sha256-5IqZ0xenqIKyeGMlZWzhf30FjZkLbsolHYBKknRGpLE=",
+            "integrity": "sha256-Q+ZUhsNNTnK2BdAnd7QfW+zfQxF/qNB5colU+SlbRD8=",
             "injectionTime": "documentEnd"
           }
         ],

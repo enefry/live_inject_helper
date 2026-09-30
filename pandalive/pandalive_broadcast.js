@@ -1,116 +1,87 @@
-/*
- * Config-page helper for PandaLive.
- *
- * The manifest injects this file into the Config WebView at documentEnd. It
- * deliberately registers functions only; it does not navigate, fill fields,
- * click buttons, or call completeConfig() automatically. The product flow can add
- * the timing and page-specific selectors later without changing the bridge
- * contract.
- */
 (function () {
-  const api = window.PandaLiveConfig = window.PandaLiveConfig || {};
-
-  function widget() {
-    if (!window.YYCamWidget) {
-      throw new Error('YYCamWidget is unavailable on this page');
-    }
-    return window.YYCamWidget;
+  // 完整模拟点击（Radix 监听 mousedown，不是 click）
+  function realClick(el) {
+    const opts = { bubbles: true, cancelable: true, view: window, button: 0, ctrlKey: false };
+    el.dispatchEvent(new MouseEvent("mousedown", opts));
+    el.dispatchEvent(new MouseEvent("mouseup", opts));
+    el.dispatchEvent(new MouseEvent("click", opts));
   }
 
-  function resolveElement(target, root) {
-    if (target && typeof target === 'object' && target.nodeType === 1) {
-      return target;
+  function isLoggedIn() {
+    try {
+      const uid = (JSON.parse(localStorage.getItem("xDeviceInfo")) || {}).ui;
+      return uid != null && String(uid) !== "" && String(uid) !== "0";
+    } catch (e) {
+      return false;
     }
-    if (typeof target !== 'string') {
-      return null;
-    }
-    return (root || document).querySelector(target);
   }
 
-  api.version = 1;
+  // ---- 每次弹出都自动切到登录 tab，登录成功后停止 ----
+  const SEL = '[data-testid="auth-tab-login"]';
+  const handled = new WeakSet();
+  let tabObserver = null;
 
-  // Native bridge wrappers. These are explicit calls so the caller controls
-  // when the Config page is considered complete or should be dismissed.
-  api.getContext = function () {
-    return widget().host.getContext();
-  };
-  api.completeConfig = function (options) {
-    return widget().host.completeConfig(options || {});
-  };
-  api.closeConfig = function (options) {
-    return widget().host.closeConfig(options || {});
-  };
-  api.on = function (name, handler) {
-    return widget().events.on(name, handler);
-  };
+  function ensureLoginTab(tab) {
+    let tries = 0;
+    (function attempt() {
+      // 每次都重新查询，避免拿着被 React 替换掉的旧节点
+      const el = document.querySelector(SEL);
+      if (!el) return;                                   // 弹窗已关闭
+      if (el.getAttribute("data-state") === "active") return;
+      realClick(el);
+      if (++tries < 10) setTimeout(attempt, 100);
+    })();
+  }
 
-  // DOM helpers keep page-specific selectors outside the native app. They do
-  // not run until called by a future PandaLive-specific flow.
-  api.find = function (selector, root) {
-    return resolveElement(selector, root);
-  };
-  api.waitFor = function (selector, options) {
-    const settings = options || {};
-    const root = settings.root || document;
-    const timeout = Number.isFinite(settings.timeout) ? settings.timeout : 10000;
-    const existing = resolveElement(selector, root);
-    if (existing) {
-      return Promise.resolve(existing);
-    }
+  function startTabWatcher() {
+    if (window.__autoLoginTabInstalled) return;
+    window.__autoLoginTabInstalled = true;
 
-    return new Promise(function (resolve, reject) {
-      let settled = false;
-      const observer = new MutationObserver(function () {
-        const element = resolveElement(selector, root);
-        if (!element || settled) {
-          return;
-        }
-        settled = true;
-        observer.disconnect();
-        clearTimeout(timer);
-        resolve(element);
-      });
-      const timer = setTimeout(function () {
-        if (settled) {
-          return;
-        }
-        settled = true;
-        observer.disconnect();
-        reject(new Error('Timed out waiting for ' + selector));
-      }, timeout);
+    const check = () => {
+      const tab = document.querySelector(SEL);
+      if (tab && !handled.has(tab)) {
+        handled.add(tab);
+        setTimeout(() => ensureLoginTab(tab), 0);
+      }
+    };
+    tabObserver = new MutationObserver(check);
+    tabObserver.observe(document.documentElement, { childList: true, subtree: true });
+    check();
+  }
 
-      observer.observe(root === document ? document.documentElement : root, {
-        childList: true,
-        subtree: true
-      });
-    });
-  };
-  api.setValue = function (target, value, options) {
-    const settings = options || {};
-    const element = resolveElement(target, settings.root);
-    if (!element) {
-      return false;
+  // ---- 登录状态轮询 ----
+  async function onLoggedIn() {
+    if (window.__loginCompletionRequested) return;
+    window.__loginCompletionRequested = true;
+    console.log("[login-watcher] 登录成功");
+    if (tabObserver) tabObserver.disconnect();
+    try {
+      await window.YYCamWidget.host.completeConfig({ reason: "authenticated" });
+    } catch (error) {
+      window.__loginCompletionRequested = false;
+      console.error("[login-watcher] 通知设置完成失败", error);
     }
+  }
 
-    const prototype = Object.getPrototypeOf(element);
-    const descriptor = prototype && Object.getOwnPropertyDescriptor(prototype, 'value');
-    if (descriptor && descriptor.set) {
-      descriptor.set.call(element, value == null ? '' : String(value));
-    } else {
-      element.value = value == null ? '' : String(value);
-    }
-    if (settings.dispatch !== false) {
-      element.dispatchEvent(new Event('input', { bubbles: true }));
-      element.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-    return true;
-  };
-  api.click = function (target, options) {
-    const element = resolveElement(target, options && options.root);
-    if (!element) {
-      return false;
-    }
-    element.click();
-    return true;
-  };
-}());
+  if (isLoggedIn()) {
+    onLoggedIn();
+  } else if (!window.__loginWatcherInstalled) {
+    window.__loginWatcherInstalled = true;
+    startTabWatcher();
+    window.__loginWatcherTimer = setInterval(() => {
+      if (isLoggedIn()) {
+        clearInterval(window.__loginWatcherTimer);
+        onLoggedIn();
+      }
+    }, 1000);
+  }
+
+  // 暴露给 PandaLiveConfig 的 click 也换成完整点击
+  // api.click = function (target, options) {
+  //   const el = resolveElement(target, options && options.root);
+  //   if (!el) return false;
+  //   realClick(el);
+  //   return true;
+  // };
+  window.__realClick = realClick;
+})();
