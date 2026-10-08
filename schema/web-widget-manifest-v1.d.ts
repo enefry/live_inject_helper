@@ -27,6 +27,7 @@ export interface WidgetIconResource {
 export interface WidgetBasePageDefinition {
   url: string;
   userAgent?: string;
+  contentMode?: WidgetWebContentMode;
   allowedOrigins?: string[];
   inject?: WidgetInjectionDefinition;
 }
@@ -55,6 +56,7 @@ export interface WidgetResourceDefinition {
 }
 
 export type WidgetInjectionTime = "documentStart" | "documentEnd";
+export type WidgetWebContentMode = "desktop" | "mobile";
 export type WidgetIntegrity = `sha256-${string}`;
 
 export interface WidgetRuntimeDeclaration {

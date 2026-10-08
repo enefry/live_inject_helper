@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "apiVersion": 1,
   "id": "com.yycam.widget.pandalive",
-  "revision": "2026.10.08.1",
+  "revision": "2026.10.08.2",
   "name": "PandaLive",
   "description": "PandaLive broadcast overlay",
   "icon": {
@@ -10,6 +10,7 @@
   },
   "main": {
     "url": "https://www.pandalive.co.kr/",
+    "contentMode": "mobile",
     "allowedOrigins": [
       "https://pandalive.co.kr",
       "https://*.pandalive.co.kr"
@@ -43,6 +44,7 @@
       "title": "PandaLive account settings",
       "description": "Sign in to PandaLive before using the overlay.",
       "url": "https://www.pandalive.co.kr/my/modify",
+      "contentMode": "mobile",
       "allowedOrigins": [
         "https://pandalive.co.kr",
         "https://*.pandalive.co.kr"

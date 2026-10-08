@@ -20,6 +20,8 @@
   `configs.default` Config 页面。
 - `pandalive.js` 注册 `configuration.status` Runtime；Manifest 不再引用
   `checkJS`。
+- Main 和 `configs.default` 均声明 `contentMode: "mobile"`；作者可在各页面
+  独立配置为 `desktop` 或 `mobile`，省略时使用 WebKit 推荐模式。
 - Config 页面自动切换到登录 tab，并轮询 `localStorage.xDeviceInfo.ui`。
   登录弹窗关闭且检测到有效用户 ID 后，通过 `YYCamWidget.host.completeConfig()`
   请求 Native 重载 Main 并验证状态；仅返回 `ready` 时停止监听。

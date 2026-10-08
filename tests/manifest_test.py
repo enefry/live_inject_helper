@@ -100,6 +100,8 @@ def validate_page(name: str, page: dict, is_config: bool = False) -> None:
     if is_config and not isinstance(page.get("title"), str):
         fail(f"{name}.title is required")
     validate_origins(page)
+    if "contentMode" in page and page["contentMode"] not in ("desktop", "mobile"):
+        fail(f"{name}.contentMode must be desktop or mobile")
     injection = page.get("inject", {})
     if not isinstance(injection, dict):
         fail(f"{name}.inject must be an object")
@@ -205,14 +207,36 @@ def test_rejections_and_ignored_extensions(manifest: dict) -> None:
     ignored_runtime["configs"]["default"]["runtime"] = "reserved-for-future"
     validate_manifest(ignored_runtime)
 
+    for mode in ("desktop", "mobile"):
+        for page_key in ("main", "config"):
+            changed = copy.deepcopy(manifest)
+            page = changed["main"] if page_key == "main" else changed["configs"]["default"]
+            page["contentMode"] = mode
+            validate_manifest(changed)
+    for invalid in (None, "", "Desktop", "recommended", 1, True, [], {}):
+        for page_key in ("main", "config"):
+            changed = copy.deepcopy(manifest)
+            page = changed["main"] if page_key == "main" else changed["configs"]["default"]
+            page["contentMode"] = invalid
+            try:
+                validate_manifest(changed)
+            except AssertionError:
+                pass
+            else:
+                fail(f"invalid {page_key}.contentMode accepted: {invalid}")
+
 
 def main() -> int:
     schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     if schema.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
         fail("schema draft is not 2020-12")
+    if schema["$defs"]["basePage"]["properties"]["contentMode"] != {"type": "string", "enum": ["desktop", "mobile"]}:
+        fail("contentMode schema must allow exactly desktop and mobile")
     manifest_text = MANIFEST_PATH.read_text(encoding="utf-8")
     manifest = json.loads(manifest_text)
     validate_manifest(manifest)
+    if manifest["main"].get("contentMode") != "mobile" or manifest["configs"]["default"].get("contentMode") != "mobile":
+        fail("PandaLive Main and Config must request mobile loading")
     assert_fixture_integrity(manifest)
     test_rejections_and_ignored_extensions(manifest)
     cases = json.loads((ROOT / "tests" / "origin_policy_cases.json").read_text(encoding="utf-8"))

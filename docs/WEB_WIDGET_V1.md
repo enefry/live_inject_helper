@@ -30,6 +30,7 @@
   },
   "main": {
     "url": "https://example.com/live",
+    "contentMode": "desktop",
     "inject": {
       "js": [
         {
@@ -50,6 +51,7 @@
       "title": "Account",
       "description": "Sign in to the service",
       "url": "https://example.com/settings",
+      "contentMode": "mobile",
       "inject": {
         "js": [],
         "css": []
@@ -67,6 +69,16 @@
 JS 和 CSS，不能从 Main 读取或继承 Config 的注入资源。Config 中即使出现
 `runtime` 字段也会被 Native 忽略，这样未来扩展 Manifest 不会让旧版本错误执行
 Config Runtime。
+
+### 网页加载模式
+
+`main.contentMode` 和 `configs.<key>.contentMode` 可分别配置为 `desktop` 或
+`mobile`，互不继承。省略时使用 WebKit 推荐模式；显式 `null`、其他值或类型
+均拒绝。初次加载、重定向、后续导航及 Manifest 刷新后的重载都使用该页面的配置。
+
+声明模式且未声明 `userAgent` 时，使用 WebKit 对应模式的系统 UA；显式
+`userAgent` 是完整自定义 UA，会覆盖系统 UA，因此应与加载模式一致。
+加载模式变化会更新 Snapshot 摘要和 Config 执行指纹。
 
 ### URL 和资源规则
 

@@ -125,6 +125,10 @@
           "minLength": 1,
           "maxLength": 2048
         },
+        "contentMode": {
+          "type": "string",
+          "enum": ["desktop", "mobile"]
+        },
         "allowedOrigins": {
           "$comment": "Additional HTTPS origins in the page's registrable domain, including PRIVATE PSL rules. Native validates DNS, public suffixes, normalized duplicates and same scheme/port. Wildcards match subdomains only; the page's own origin remains authorized.",
           "type": "array",
