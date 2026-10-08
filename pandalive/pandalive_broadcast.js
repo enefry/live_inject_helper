@@ -10,7 +10,9 @@
   function loggedInUserID() {
     try {
       const uid = (JSON.parse(localStorage.getItem("xDeviceInfo")) || {}).ui;
-      return uid != null && String(uid) !== "" && String(uid) !== "0" ? String(uid) : null;
+      if (typeof uid !== "string" && typeof uid !== "number") return null;
+      const value = String(uid).trim();
+      return value !== "" && value !== "0" ? value : null;
     } catch (e) {
       return null;
     }

@@ -1,19 +1,24 @@
 (function () {
-    console.log(`version:20260430-21:59`)
+    console.log('version:2026.10.08.3');
+
+    function loggedInUserID() {
+        try {
+            const uid = (JSON.parse(window.localStorage.getItem('xDeviceInfo')) || {}).ui;
+            if (typeof uid !== 'string' && typeof uid !== 'number') return null;
+            const value = String(uid).trim();
+            return value !== '' && value !== '0' ? value : null;
+        } catch (error) {
+            return null;
+        }
+    }
 
     // Main Runtime replacement for the old checkJS resource. Native invokes
     // this handler after Main navigation and uses the returned state to
     // decide whether configs.default should be presented.
     function configurationStatus() {
-        let deviceInfo = null;
-        try {
-            const raw = window.localStorage.getItem('xDeviceInfo');
-            deviceInfo = raw ? JSON.parse(raw) : null;
-        } catch (error) {
-            deviceInfo = null;
-        }
-
-        if (deviceInfo && String(deviceInfo.ui) !== '0') {
+        // Guest device info can exist without a UID. A cached UID can also
+        // remain while the site is asking the user to sign in again.
+        if (loggedInUserID() !== null && !document.querySelector('[data-testid="auth-tab-login"]')) {
             return {
                 state: 'ready',
                 reason: 'authenticated'

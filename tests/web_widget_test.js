@@ -7,6 +7,10 @@ const vm = require("vm");
 
 const rootDir = path.resolve(__dirname, "..");
 const sdkSource = fs.readFileSync(path.join(rootDir, "sdk/yycamwidget.js"), "utf8");
+const invalidPandaLiveDeviceInfo = [
+  null, "invalid-json", "null", "{}", "[]", '"guest"', "false",
+  ...[null, "", " ", 0, "0", " 0 ", false, true, {}, []].map(ui => JSON.stringify({ ui }))
+];
 
 function tick() {
   return new Promise((resolve) => setTimeout(resolve, 0));
@@ -362,17 +366,19 @@ async function testPandaLiveConfigHelper() {
     requiredConfig: { configKey: "default", available: true }
   };
 
-  const loggedIn = createPage(JSON.stringify({ ui: "123" }));
-  loggedIn.run();
-  await new Promise(resolve => setImmediate(resolve));
-  assert.deepStrictEqual(loggedIn.calls, [{ reason: "authenticated" }]);
-  assert.strictEqual(loggedIn.intervals.size, 0);
-  assert.deepStrictEqual(loggedIn.errors, []);
+  for (const ui of [123, "123", " 123 "]) {
+    const loggedIn = createPage(JSON.stringify({ ui }));
+    loggedIn.run();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepStrictEqual(loggedIn.calls, [{ reason: "authenticated" }]);
+    assert.strictEqual(loggedIn.intervals.size, 0);
+    assert.deepStrictEqual(loggedIn.errors, []);
+  }
 
-  for (const storageValue of [null, "invalid-json", "{}", '{"ui":null}', '{"ui":""}', '{"ui":0}', '{"ui":"0"}']) {
+  for (const storageValue of invalidPandaLiveDeviceInfo) {
     const page = createPage(storageValue);
     page.run();
-    assert.strictEqual(page.calls.length, 0);
+    assert.strictEqual(page.calls.length, 0, `must wait for login for xDeviceInfo=${storageValue}`);
     assert.strictEqual(page.intervals.size, 1);
     const poll = page.intervals.get(1);
     poll();
@@ -500,9 +506,11 @@ async function testPandaLiveConfigHelper() {
 
 function testPandaLiveMainRuntime() {
   let handler;
+  let authTab = null;
   const localStorage = {
     value: JSON.stringify({ ui: "0" }),
     getItem() {
+      if (this.unavailable) throw new Error("Storage unavailable");
       return this.value;
     }
   };
@@ -514,6 +522,10 @@ function testPandaLiveMainRuntime() {
       readyState: "loading",
       addEventListener() {},
       getElementById() { return null; },
+      querySelector(selector) {
+        assert.strictEqual(selector, '[data-testid="auth-tab-login"]');
+        return authTab;
+      },
       body: {}
     },
     MutationObserver: function () {},
@@ -535,17 +547,39 @@ function testPandaLiveMainRuntime() {
     sandbox,
     { filename: "pandalive.js" }
   );
-  assert.deepStrictEqual(plain(handler({ trigger: "initialLoad" })), {
+  const needsConfiguration = {
     state: "needsConfiguration",
     configKey: "default",
     reason: "loginRequired",
     message: "PandaLive login is required"
-  });
-  localStorage.value = JSON.stringify({ ui: "123" });
-  assert.deepStrictEqual(plain(handler({ trigger: "manualRefresh" })), {
+  };
+  const ready = {
     state: "ready",
     reason: "authenticated"
-  });
+  };
+  for (const storageValue of invalidPandaLiveDeviceInfo) {
+    localStorage.value = storageValue;
+    for (const trigger of ["initialLoad", "configCompleted"]) {
+      assert.deepStrictEqual(plain(handler({ trigger })), needsConfiguration,
+        `must require login for xDeviceInfo=${storageValue}, trigger=${trigger}`);
+    }
+  }
+  for (const ui of [123, "123", " 123 "]) {
+    localStorage.value = JSON.stringify({ ui });
+    assert.deepStrictEqual(plain(handler({ trigger: "configCompleted" })), ready);
+  }
+
+  // A cached UID must not suppress automatic Config presentation while the
+  // site is asking the user to sign in again.
+  authTab = {};
+  assert.deepStrictEqual(plain(handler({ trigger: "initialLoad" })), needsConfiguration);
+  authTab = null;
+  assert.deepStrictEqual(plain(handler({ trigger: "manualRefresh" })), ready);
+  localStorage.unavailable = true;
+  assert.deepStrictEqual(plain(handler({ trigger: "initialLoad" })), needsConfiguration);
+  localStorage.unavailable = false;
+  localStorage.value = '{"ui":"0"}';
+  assert.deepStrictEqual(plain(handler({ trigger: "manualRefresh" })), needsConfiguration);
 }
 
 (async () => {
