@@ -7,12 +7,12 @@
     el.dispatchEvent(new MouseEvent("click", opts));
   }
 
-  function isLoggedIn() {
+  function loggedInUserID() {
     try {
       const uid = (JSON.parse(localStorage.getItem("xDeviceInfo")) || {}).ui;
-      return uid != null && String(uid) !== "" && String(uid) !== "0";
+      return uid != null && String(uid) !== "" && String(uid) !== "0" ? String(uid) : null;
     } catch (e) {
-      return false;
+      return null;
     }
   }
 
@@ -49,31 +49,83 @@
     check();
   }
 
-  // ---- 登录状态轮询 ----
-  async function onLoggedIn() {
-    if (window.__loginCompletionRequested) return;
-    window.__loginCompletionRequested = true;
-    console.log("[login-watcher] 登录成功");
+  // ---- 登录状态轮询；只有 Main 验证 ready 后才结束 ----
+  const MAX_COMPLETION_ATTEMPTS = 6;
+  let observedUID = null;
+  let loginEpoch = 0;
+  let completionAttempts = 0;
+  let nextAttemptAt = 0;
+  let stopped = false;
+
+  function stopWatching() {
+    stopped = true;
+    clearInterval(window.__loginWatcherTimer);
+    window.__loginWatcherTimer = null;
     if (tabObserver) tabObserver.disconnect();
+  }
+
+  async function onLoggedIn() {
+    if (stopped || window.__loginCompletionRequested) return;
+    window.__loginCompletionRequested = true;
+    const requestEpoch = loginEpoch;
+    completionAttempts++;
+    console.log("[login-watcher] 检测到登录信息，确认主页面状态");
     try {
-      await window.YYCamWidget.host.completeConfig({ reason: "authenticated" });
+      const result = await window.YYCamWidget.host.completeConfig({ reason: "authenticated" });
+      if (result && result.state === "ready") {
+        console.log("[login-watcher] 设置验证完成");
+        stopWatching();
+        return;
+      }
+      if (!result || result.state !== "needsConfiguration") {
+        throw new Error("Invalid completeConfig result");
+      }
+      const required = result.requiredConfig;
+      if (!required || !required.available || required.configKey !== result.currentConfigKey) {
+        // Native retires this page when the required Config is unavailable or
+        // changes. Do not keep sending completion requests from the old page.
+        stopWatching();
+        return;
+      }
+      console.log("[login-watcher] 主页面仍需配置，稍后重试验证");
     } catch (error) {
-      window.__loginCompletionRequested = false;
       console.error("[login-watcher] 通知设置完成失败", error);
+      // The JS timeout can expire while Native is still verifying the earlier
+      // request. ALREADY_IN_PROGRESS means wait, even if marked non-retryable.
+      if (error && error.retryable === false && error.code !== "ALREADY_IN_PROGRESS") stopWatching();
+    } finally {
+      if (!stopped) {
+        window.__loginCompletionRequested = false;
+        if (requestEpoch === loginEpoch) {
+          nextAttemptAt = Date.now() + Math.min(2000 * Math.pow(2, completionAttempts - 1), 10000);
+          if (completionAttempts >= MAX_COMPLETION_ATTEMPTS) {
+            console.warn("[login-watcher] 验证重试已达上限，继续等待新的登录状态");
+          }
+        }
+      }
     }
   }
 
-  if (isLoggedIn()) {
-    onLoggedIn();
-  } else if (!window.__loginWatcherInstalled) {
+  function checkLogin() {
+    if (stopped) return;
+    // xDeviceInfo can contain a cached UID while the login dialog is open.
+    const uid = document.querySelector(SEL) ? null : loggedInUserID();
+    if (uid !== observedUID) {
+      observedUID = uid;
+      loginEpoch++;
+      completionAttempts = 0;
+      nextAttemptAt = 0;
+    }
+    if (uid !== null && completionAttempts < MAX_COMPLETION_ATTEMPTS && Date.now() >= nextAttemptAt) {
+      onLoggedIn();
+    }
+  }
+
+  if (!window.__loginWatcherInstalled) {
     window.__loginWatcherInstalled = true;
     startTabWatcher();
-    window.__loginWatcherTimer = setInterval(() => {
-      if (isLoggedIn()) {
-        clearInterval(window.__loginWatcherTimer);
-        onLoggedIn();
-      }
-    }, 1000);
+    window.__loginWatcherTimer = setInterval(checkLogin, 1000);
+    checkLogin();
   }
 
   // 暴露给 PandaLiveConfig 的 click 也换成完整点击

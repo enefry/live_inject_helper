@@ -309,41 +309,62 @@ async function testConfigSDK() {
 
 async function testPandaLiveConfigHelper() {
   const source = fs.readFileSync(path.join(rootDir, "pandalive/pandalive_broadcast.js"), "utf8");
-  function createPage(storageValue, completionError) {
+  function createPage(storageValue, responses = [{ state: "ready" }]) {
     const calls = [];
     const errors = [];
+    const warnings = [];
     const intervals = new Map();
+    let now = 0;
+    let responseIndex = 0;
+    let authTab = null;
     let disconnected = false;
     const sandbox = {
-      console: { log() {}, error: (...args) => errors.push(args) },
+      console: { log() {}, error: (...args) => errors.push(args), warn: (...args) => warnings.push(args) },
+      Date: class extends Date { static now() { return now; } },
       localStorage: { value: storageValue, getItem() { return this.value; } },
-      window: {
-        YYCamWidget: {
-          host: {
-            completeConfig(options) {
-              calls.push(plain(options));
-              return completionError ? Promise.reject(completionError) : Promise.resolve({ state: "ready" });
-            }
+      YYCamWidget: {
+        host: {
+          completeConfig(options) {
+            calls.push(plain(options));
+            const response = responses[Math.min(responseIndex++, responses.length - 1)];
+            if (response instanceof Error) return Promise.reject(response);
+            return typeof response === "function" ? response() : Promise.resolve(response);
           }
         }
       },
-      document: { documentElement: {}, querySelector: () => null },
+      document: { documentElement: {}, querySelector: () => authTab },
       MutationObserver: function () {
-        this.observe = () => {};
+        this.observe = () => { disconnected = false; };
         this.disconnect = () => { disconnected = true; };
       },
       setInterval(callback) { intervals.set(1, callback); return 1; },
       clearInterval(timer) { intervals.delete(timer); },
-      setTimeout
+      setTimeout(callback) { callback(); }
     };
+    sandbox.window = sandbox;
     const run = () => vm.runInNewContext(source, sandbox, { filename: "pandalive_broadcast.js" });
     run();
-    return { calls, errors, intervals, sandbox, run, isDisconnected: () => disconnected };
+    return {
+      calls, errors, warnings, intervals, sandbox, run,
+      isDisconnected: () => disconnected,
+      showLoginTab(visible) { authTab = visible ? { getAttribute: () => "active" } : null; },
+      async poll(elapsed = 1000) {
+        now += elapsed;
+        for (const callback of Array.from(intervals.values())) callback();
+        await new Promise(resolve => setImmediate(resolve));
+      }
+    };
   }
+
+  const needsConfiguration = {
+    state: "needsConfiguration",
+    currentConfigKey: "default",
+    requiredConfig: { configKey: "default", available: true }
+  };
 
   const loggedIn = createPage(JSON.stringify({ ui: "123" }));
   loggedIn.run();
-  await Promise.resolve();
+  await new Promise(resolve => setImmediate(resolve));
   assert.deepStrictEqual(loggedIn.calls, [{ reason: "authenticated" }]);
   assert.strictEqual(loggedIn.intervals.size, 0);
   assert.deepStrictEqual(loggedIn.errors, []);
@@ -359,18 +380,122 @@ async function testPandaLiveConfigHelper() {
     page.sandbox.localStorage.value = JSON.stringify({ ui: 123 });
     poll();
     poll();
-    await Promise.resolve();
+    await new Promise(resolve => setImmediate(resolve));
     assert.deepStrictEqual(page.calls, [{ reason: "authenticated" }]);
     assert.strictEqual(page.intervals.size, 0);
     assert.strictEqual(page.isDisconnected(), true);
   }
 
-  const completionError = new Error("Native completion failed");
-  const failed = createPage(JSON.stringify({ ui: "123" }), completionError);
+  // A successful bridge response can still require the same Config. Keep
+  // polling and retry verification instead of treating it as completion.
+  const delayed = createPage(JSON.stringify({ ui: "123" }), [needsConfiguration, { state: "ready" }]);
+  await delayed.poll(0);
+  assert.strictEqual(delayed.calls.length, 1);
+  assert.strictEqual(delayed.intervals.size, 1);
+  assert.strictEqual(delayed.isDisconnected(), false);
+  delayed.run();
+  await delayed.poll(1000);
+  assert.strictEqual(delayed.calls.length, 1);
+  await delayed.poll(1000);
+  assert.strictEqual(delayed.calls.length, 2);
+  assert.strictEqual(delayed.intervals.size, 0);
+  assert.strictEqual(delayed.isDisconnected(), true);
+
+  const completionError = Object.assign(new Error("Native completion failed"), { retryable: true });
+  const failed = createPage(JSON.stringify({ ui: "123" }), [completionError, { state: "ready" }]);
   await new Promise(resolve => setImmediate(resolve));
   assert.strictEqual(failed.errors.length, 1);
   assert.strictEqual(failed.errors[0][1], completionError);
   assert.strictEqual(failed.sandbox.window.__loginCompletionRequested, false);
+  assert.strictEqual(failed.intervals.size, 1);
+  await failed.poll(2000);
+  assert.strictEqual(failed.calls.length, 2);
+  assert.strictEqual(failed.intervals.size, 0);
+
+  const busyAfterTimeout = createPage('{"ui":"123"}', [
+    Object.assign(new Error("Native request timed out"), { code: "TIMEOUT", retryable: true }),
+    Object.assign(new Error("Configuration is already completing"), { code: "ALREADY_IN_PROGRESS", retryable: false }),
+    needsConfiguration,
+    { state: "ready" }
+  ]);
+  await busyAfterTimeout.poll(0);
+  await busyAfterTimeout.poll(2000);
+  assert.strictEqual(busyAfterTimeout.intervals.size, 1);
+  await busyAfterTimeout.poll(4000);
+  await busyAfterTimeout.poll(8000);
+  assert.strictEqual(busyAfterTimeout.calls.length, 4);
+  assert.strictEqual(busyAfterTimeout.intervals.size, 0);
+
+  let resolvePending;
+  const pending = createPage(JSON.stringify({ ui: "123" }), [
+    () => new Promise(resolve => { resolvePending = resolve; }),
+    { state: "ready" }
+  ]);
+  pending.run();
+  await pending.poll(60000);
+  await pending.poll(60000);
+  assert.strictEqual(pending.calls.length, 1, "only one completion may be in flight");
+  resolvePending(needsConfiguration);
+  await pending.poll(0);
+  await pending.poll(2000);
+  assert.strictEqual(pending.calls.length, 2);
+  assert.strictEqual(pending.intervals.size, 0);
+
+  // A cached UID must not complete Config while the login dialog is open.
+  const cached = createPage('{"ui":"0"}');
+  cached.showLoginTab(true);
+  cached.sandbox.localStorage.value = '{"ui":"123"}';
+  await cached.poll();
+  assert.strictEqual(cached.calls.length, 0);
+  cached.showLoginTab(false);
+  await cached.poll();
+  assert.strictEqual(cached.calls.length, 1);
+  assert.strictEqual(cached.intervals.size, 0);
+
+  // Bound reloads for one login episode, but keep watching so a later real
+  // login (even with the same cached UID) can start a fresh verification.
+  const exhausted = createPage('{"ui":"123"}', [
+    ...Array(6).fill(needsConfiguration), { state: "ready" }
+  ]);
+  for (let attempt = 0; attempt < 8; attempt++) await exhausted.poll(60000);
+  assert.strictEqual(exhausted.calls.length, 6);
+  assert.strictEqual(exhausted.warnings.length, 1);
+  exhausted.showLoginTab(true);
+  await exhausted.poll();
+  exhausted.showLoginTab(false);
+  await exhausted.poll();
+  assert.strictEqual(exhausted.calls.length, 7);
+  assert.strictEqual(exhausted.intervals.size, 0);
+
+  const changedUser = createPage('{"ui":"123"}', [
+    ...Array(6).fill(needsConfiguration), { state: "ready" }
+  ]);
+  for (let attempt = 0; attempt < 8; attempt++) await changedUser.poll(60000);
+  changedUser.sandbox.localStorage.value = '{"ui":"456"}';
+  await changedUser.poll();
+  assert.strictEqual(changedUser.calls.length, 7);
+  assert.strictEqual(changedUser.intervals.size, 0);
+
+  const cancelled = createPage('{"ui":"123"}', [
+    Object.assign(new Error("Config was closed"), { code: "CANCELLED", retryable: false })
+  ]);
+  await cancelled.poll();
+  assert.strictEqual(cancelled.calls.length, 1);
+  assert.strictEqual(cancelled.intervals.size, 0);
+
+  const switched = createPage('{"ui":"123"}', [{
+    ...needsConfiguration, requiredConfig: { configKey: "profile", available: true }
+  }]);
+  await switched.poll();
+  assert.strictEqual(switched.calls.length, 1);
+  assert.strictEqual(switched.intervals.size, 0);
+
+  const unavailable = createPage('{"ui":"123"}', [{
+    ...needsConfiguration, requiredConfig: { configKey: "default", available: false }
+  }]);
+  await unavailable.poll();
+  assert.strictEqual(unavailable.calls.length, 1);
+  assert.strictEqual(unavailable.intervals.size, 0);
 }
 
 function testPandaLiveMainRuntime() {

@@ -21,8 +21,11 @@
 - `pandalive.js` 注册 `configuration.status` Runtime；Manifest 不再引用
   `checkJS`。
 - Config 页面自动切换到登录 tab，并轮询 `localStorage.xDeviceInfo.ui`。
-  检测到有效用户 ID 后停止监听，通过 `YYCamWidget.host.completeConfig()`
-  通知 Native 设置完成；同一页面不会重复通知，调用失败时输出错误日志。
+  登录弹窗关闭且检测到有效用户 ID 后，通过 `YYCamWidget.host.completeConfig()`
+  请求 Native 重载 Main 并验证状态；仅返回 `ready` 时停止监听。
+  同一 Config 仍为 `needsConfiguration` 或发生可重试错误时，串行重试，
+  间隔从 2 秒逐步增加至 10 秒，每次登录最多尝试 6 次。
+  达到上限后继续监听；用户 ID 改变或登录弹窗重新打开并关闭后可重新验证。
 
 `pandalive_check.js` 已不属于 v1 运行路径；保留它仅用于迁移时对照，Native
 不得下载、执行或从 Manifest 引用该文件。
