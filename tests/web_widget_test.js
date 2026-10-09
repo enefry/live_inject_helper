@@ -318,6 +318,9 @@ async function testPandaLiveConfigHelper() {
     const errors = [];
     const warnings = [];
     const intervals = new Map();
+    const intervalDelays = new Map();
+    const observers = new Set();
+    const listeners = new Map();
     let now = 0;
     let responseIndex = 0;
     let authTab = null;
@@ -337,21 +340,31 @@ async function testPandaLiveConfigHelper() {
         }
       },
       document: { documentElement: {}, querySelector: () => authTab },
-      MutationObserver: function () {
-        this.observe = () => { disconnected = false; };
-        this.disconnect = () => { disconnected = true; };
+      MutationObserver: function (callback) {
+        this.observe = () => { disconnected = false; observers.add(callback); };
+        this.disconnect = () => { disconnected = true; observers.delete(callback); };
       },
-      setInterval(callback) { intervals.set(1, callback); return 1; },
-      clearInterval(timer) { intervals.delete(timer); },
-      setTimeout(callback) { callback(); }
+      setInterval(callback, delay) { intervals.set(1, callback); intervalDelays.set(1, delay); return 1; },
+      clearInterval(timer) { intervals.delete(timer); intervalDelays.delete(timer); },
+      setTimeout(callback) { callback(); },
+      addEventListener(name, callback) { listeners.set(name, callback); },
+      removeEventListener(name, callback) { if (listeners.get(name) === callback) listeners.delete(name); }
     };
     sandbox.window = sandbox;
     const run = () => vm.runInNewContext(source, sandbox, { filename: "pandalive_broadcast.js" });
     run();
     return {
-      calls, errors, warnings, intervals, sandbox, run,
+      calls, errors, warnings, intervals, intervalDelays, listeners, sandbox, run,
       isDisconnected: () => disconnected,
       showLoginTab(visible) { authTab = visible ? { getAttribute: () => "active" } : null; },
+      async mutate() {
+        for (const callback of observers) callback([]);
+        await new Promise(resolve => setImmediate(resolve));
+      },
+      async storageChanged(key) {
+        listeners.get("storage")?.({ key });
+        await new Promise(resolve => setImmediate(resolve));
+      },
       async poll(elapsed = 1000) {
         now += elapsed;
         for (const callback of Array.from(intervals.values())) callback();
@@ -365,6 +378,33 @@ async function testPandaLiveConfigHelper() {
     currentConfigKey: "default",
     requiredConfig: { configKey: "default", available: true }
   };
+
+  // Login dialog removal should notify Native in the same event turn,
+  // without waiting for a polling interval.
+  const immediate = createPage('{"ui":"0"}');
+  immediate.showLoginTab(true);
+  immediate.sandbox.localStorage.value = '{"ui":"123"}';
+  await immediate.mutate();
+  assert.strictEqual(immediate.calls.length, 0);
+  immediate.showLoginTab(false);
+  await immediate.mutate();
+  assert.strictEqual(immediate.calls.length, 1);
+  assert.strictEqual(immediate.intervals.size, 0);
+  assert.strictEqual(immediate.listeners.size, 0);
+
+  const storageNotification = createPage('{"ui":"0"}');
+  storageNotification.sandbox.localStorage.value = '{"ui":"123"}';
+  await storageNotification.storageChanged("other-key");
+  assert.strictEqual(storageNotification.calls.length, 0);
+  await storageNotification.storageChanged("xDeviceInfo");
+  assert.strictEqual(storageNotification.calls.length, 1);
+  assert.strictEqual(storageNotification.listeners.size, 0);
+
+  const fallback = createPage('{"ui":"0"}');
+  fallback.sandbox.localStorage.value = '{"ui":"123"}';
+  assert.ok(fallback.intervalDelays.get(1) <= 250, "silent storage changes must be detected within 250 ms");
+  await fallback.poll(250);
+  assert.strictEqual(fallback.calls.length, 1);
 
   for (const ui of [123, "123", " 123 "]) {
     const loggedIn = createPage(JSON.stringify({ ui }));
@@ -400,9 +440,11 @@ async function testPandaLiveConfigHelper() {
   assert.strictEqual(delayed.intervals.size, 1);
   assert.strictEqual(delayed.isDisconnected(), false);
   delayed.run();
-  await delayed.poll(1000);
+  await delayed.poll(499);
   assert.strictEqual(delayed.calls.length, 1);
-  await delayed.poll(1000);
+  await delayed.mutate();
+  assert.strictEqual(delayed.calls.length, 1, "DOM changes must preserve verification backoff");
+  await delayed.poll(1);
   assert.strictEqual(delayed.calls.length, 2);
   assert.strictEqual(delayed.intervals.size, 0);
   assert.strictEqual(delayed.isDisconnected(), true);

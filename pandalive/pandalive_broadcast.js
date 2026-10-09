@@ -45,6 +45,9 @@
         handled.add(tab);
         setTimeout(() => ensureLoginTab(tab), 0);
       }
+      // Login replaces/removes the dialog. Check in this DOM event instead
+      // of waiting for the next polling tick.
+      checkLogin();
     };
     tabObserver = new MutationObserver(check);
     tabObserver.observe(document.documentElement, { childList: true, subtree: true });
@@ -64,6 +67,7 @@
     clearInterval(window.__loginWatcherTimer);
     window.__loginWatcherTimer = null;
     if (tabObserver) tabObserver.disconnect();
+    window.removeEventListener("storage", onStorageChanged);
   }
 
   async function onLoggedIn() {
@@ -71,6 +75,7 @@
     window.__loginCompletionRequested = true;
     const requestEpoch = loginEpoch;
     completionAttempts++;
+    let retryDelay = Math.min(2000 * Math.pow(2, completionAttempts - 1), 10000);
     console.log("[login-watcher] 检测到登录信息，确认主页面状态");
     try {
       const result = await window.YYCamWidget.host.completeConfig({ reason: "authenticated" });
@@ -90,6 +95,9 @@
         return;
       }
       console.log("[login-watcher] 主页面仍需配置，稍后重试验证");
+      // Give freshly saved cookies a quick first recheck. Transport errors
+      // and later attempts retain the existing bounded backoff.
+      if (completionAttempts === 1) retryDelay = 500;
     } catch (error) {
       console.error("[login-watcher] 通知设置完成失败", error);
       // The JS timeout can expire while Native is still verifying the earlier
@@ -99,13 +107,17 @@
       if (!stopped) {
         window.__loginCompletionRequested = false;
         if (requestEpoch === loginEpoch) {
-          nextAttemptAt = Date.now() + Math.min(2000 * Math.pow(2, completionAttempts - 1), 10000);
+          nextAttemptAt = Date.now() + retryDelay;
           if (completionAttempts >= MAX_COMPLETION_ATTEMPTS) {
             console.warn("[login-watcher] 验证重试已达上限，继续等待新的登录状态");
           }
         }
       }
     }
+  }
+
+  function onStorageChanged(event) {
+    if (event.key === "xDeviceInfo" || event.key === null) checkLogin();
   }
 
   function checkLogin() {
@@ -125,9 +137,9 @@
 
   if (!window.__loginWatcherInstalled) {
     window.__loginWatcherInstalled = true;
+    window.addEventListener("storage", onStorageChanged);
+    window.__loginWatcherTimer = setInterval(checkLogin, 250);
     startTabWatcher();
-    window.__loginWatcherTimer = setInterval(checkLogin, 1000);
-    checkLogin();
   }
 
   // 暴露给 PandaLiveConfig 的 click 也换成完整点击

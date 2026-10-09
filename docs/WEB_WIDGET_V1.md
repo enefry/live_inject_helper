@@ -224,6 +224,10 @@ Config completeConfig()
 → needsConfiguration：返回 requiredConfig，按需保持或切换 Config
 ```
 
+支持提前验证的 Native 在新 Main 文档提交、当前 generation 的 Runtime 注册后即可
+检查状态。仅 `ready` 可提前完成，不必等待图片、媒体等资源全部加载；其他结果继续
+走导航加载完成后的正常复查。旧 generation、未授权 Origin 或用户取消后的响应无效。
+
 返回结果的关键字段：
 
 - `state: "ready"`：Main 已确认完成；`verification` 是 `passed` 或
@@ -245,7 +249,7 @@ Config 打开时固定绑定当时的 `configKey`、Origin、User-Agent、注入
 `executionFingerprint`；订阅刷新不会热切换正在展示的 Config。`completeConfig()`
 刷新成功会激活新 Snapshot，刷新失败但旧 Snapshot 可用时使用旧 Snapshot 并返回
 `subscriptionRefresh: "failedUsingCurrentSnapshot"`。只有当前 generation 的 Main
-重载和 Runtime 复查都完成后，`state: "ready"` 才会 resolve；迟到的旧 generation
+文档提交和 Runtime 复查都完成后，`state: "ready"` 才会 resolve；迟到的旧 generation
 响应会被丢弃。
 
 用户取消设置时调用：

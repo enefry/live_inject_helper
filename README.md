@@ -22,11 +22,13 @@
   `checkJS`。
 - Main 和 `configs.default` 均声明 `contentMode: "mobile"`；作者可在各页面
   独立配置为 `desktop` 或 `mobile`，省略时使用 WebKit 推荐模式。
-- Config 页面自动切换到登录 tab，并轮询 `localStorage.xDeviceInfo.ui`。
+- Config 页面自动切换到登录 tab。DOM 变化和相关 `storage` 事件立即检查
+  `localStorage.xDeviceInfo.ui`，并以 250 毫秒轮询补充静默状态变化。
   登录弹窗关闭且检测到有效用户 ID 后，通过 `YYCamWidget.host.completeConfig()`
   请求 Native 重载 Main 并验证状态；仅返回 `ready` 时停止监听。
   同一 Config 仍为 `needsConfiguration` 或发生可重试错误时，串行重试，
-  间隔从 2 秒逐步增加至 10 秒，每次登录最多尝试 6 次。
+  首次返回同一 Config 的 `needsConfiguration` 时等待 500 毫秒再试；
+  可重试错误和后续重试保留原退避策略，间隔逐步增加至 10 秒，每次登录最多尝试 6 次。
   达到上限后继续监听；用户 ID 改变或登录弹窗重新打开并关闭后可重新验证。
 
 `pandalive_check.js` 已不属于 v1 运行路径；保留它仅用于迁移时对照，Native

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "apiVersion": 1,
   "id": "com.yycam.widget.pandalive",
-  "revision": "2026.10.08.3",
+  "revision": "2026.10.08.4",
   "name": "PandaLive",
   "description": "PandaLive broadcast overlay",
   "icon": {
@@ -54,7 +54,7 @@
           {
             "id": "pandalive-config-default",
             "url": "https://raw.githubusercontent.com/enefry/live_inject_helper/refs/heads/master/pandalive/pandalive_broadcast.js",
-            "integrity": "sha256-QcV6h3tJ8Cudk6Nt+9V+O1hjUTw1NHywlj1Gi39D99E=",
+            "integrity": "sha256-C+eB9snx/tKEKeGWOaXWAeGQSdXeILoHUJMRLs4+Xcs=",
             "injectionTime": "documentEnd"
           }
         ],
